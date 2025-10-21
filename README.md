@@ -36,28 +36,7 @@ The system implements a microservices-based architecture utilizing n8n workflow 
 
 ## Architecture
 
-┌─────────────────┐
-│ Telegram Bot    │ ◄─── User Interface
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────────────────────────┐
-│ n8n Workflow Orchestration Engine   │
-├─────────────────────────────────────┤
-│ - Event Processing                  │
-│ - State Management                  │
-│ - API Gateway                       │
-└────┬─────────────────────┬──────────┘
-     │                     │
-     ▼                     ▼
-┌─────────────┐ ┌──────────────────┐
-│  AI Agent   │ │    Data Layer    │
-├─────────────┤ ├──────────────────┤
-│ - Resume    │ │ - Google Sheets  │
-│ Parser      │ │ - Gmail SMTP     │
-│ - Email     │ │ - File Storage   │
-│ Generator   │ └──────────────────┘
-└─────────────┘
+![alt text](<Untitled diagram-2025-10-21-070338-1.png>)
 
 
 
