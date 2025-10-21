@@ -1,0 +1,1107 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Telegram Trigger').item.json.message.document.file_id }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    },
+                    "id": "9e67bd13-904c-4de3-a238-ee065bbf56f1"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "b93cbd58-c7ef-430d-a90a-490164114260",
+                    "leftValue": "={{ $('Telegram Trigger').item.json.message.text }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -800,
+        256
+      ],
+      "id": "6fda2f27-73e1-4d50-b297-d5d67d837247",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $('Telegram Trigger').item.json.message.document.file_id }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -576,
+        112
+      ],
+      "id": "0f15eb49-807e-4063-87d7-bd3b476124c5",
+      "name": "Get a file",
+      "webhookId": "22374e7f-68a6-48ce-a34e-997e38a376fe",
+      "credentials": {
+        "telegramApi": {
+          "id": "VilN21O6qgOfsoQs",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -288,
+        112
+      ],
+      "id": "2bb8d721-4f52-4cf3-a95e-b1a6d1f845e3",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Extract structured information from this resume and return ONLY a JSON object.\n\nResume text:\n{{ $('Extract from File').item.json.text }}\n\nReturn this exact JSON structure (no markdown, no explanation):\n\n{\n  \"name\": \"Full name\",\n  \"email\": \"email@example.com\",\n  \"phone\": \"+91 1234567890\",\n  \"linkedin\": \"linkedin.com/in/profile\",\n  \"skills\": \"Python, Django, Machine Learning, AWS\",\n  \"experience_years\": 3,\n  \"current_role\": \"Software Engineer at Company\"\n}\n\nRules:\n- If field not found, use empty string\n- experience_years must be a number\n- skills should be comma-separated\n- Return ONLY valid JSON",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "474d01a1-f475-4971-967f-8bee3133577a",
+      "name": "AI Agent - Parse Resume"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare resume data for Google Sheets\ntry {\n  let aiOutput = $input.item.json.output;\n  \n  // Remove markdown code blocks\n  aiOutput = aiOutput.replace(/``````\\n?/g, '').trim();\n  \n  // Parse JSON\n  const resumeData = JSON.parse(aiOutput);\n  \n  // Get Telegram user ID\n  const userId = $('Telegram Trigger').item.json.message.chat.id;\n  \n  // Get full resume text\n  const resumeText = $('Extract from File').item.json.text || '';\n  \n  // Format date\n  const today = new Date().toISOString().split('T')[0];\n  \n  return [{\n    json: {\n      User_id: userId.toString(),\n      Name: resumeData.name || 'Not found',\n      Email: resumeData.email || '',\n      Phone: resumeData.phone || '',\n      LinkedIn: resumeData.linkedin || '',\n      Skills: resumeData.skills || '',\n      Experience_years: resumeData.experience_years || 0,\n      Current_role: resumeData.current_role || '',\n      Resume_text: resumeText.substring(0, 10000),\n      Resume_drive_link: '',\n      Uploaded_date: today\n    }\n  }];\n  \n} catch (error) {\n  console.error(\"Error parsing resume:\", error.message);\n  \n  const userId = $('Telegram Trigger').item.json.message.chat.id;\n  const resumeText = $('Extract from File').item.json.text || '';\n  const today = new Date().toISOString().split('T')[0];\n  \n  return [{\n    json: {\n      User_id: userId.toString(),\n      Name: 'Parse failed - check manually',\n      Email: '',\n      Phone: '',\n      LinkedIn: '',\n      Skills: '',\n      Experience_years: 0,\n      Current_role: '',\n      Resume_text: resumeText.substring(0, 10000),\n      Resume_drive_link: '',\n      Uploaded_date: today\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        112
+      ],
+      "id": "360d1344-dc55-4683-9ef7-c997519a22c1",
+      "name": "Prepare Resume Data"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1wzCbJ66HADSkTX2pd2-Cx-_cn8UEFsXKjBTBQPSsIok",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1 ",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "User_id": "={{ $json.User_id }}",
+            "Email": "={{ $json.Email }}",
+            "Phone": "={{ $json.Phone }}",
+            "Linkedin": "={{ $json.LinkedIn }}",
+            "Skills": "={{ $json.Skills }}",
+            "Experience_years": "={{ $json.Experience_years }}",
+            "Current_role": "={{ $json.Current_role }}",
+            "Resume_text": "={{ $json.Resume_text }}",
+            "Resume_drive_link": "={{ $json.Resume_drive_link }}",
+            "Uploaded_date": "={{ $json.Uploaded_date }}",
+            "Name": "={{ $json.Name }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "User_id",
+              "displayName": "User_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Linkedin",
+              "displayName": "Linkedin",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Skills",
+              "displayName": "Skills",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Experience_years",
+              "displayName": "Experience_years",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Current_role",
+              "displayName": "Current_role",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Resume_text",
+              "displayName": "Resume_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Resume_drive_link",
+              "displayName": "Resume_drive_link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Uploaded_date",
+              "displayName": "Uploaded_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        704,
+        112
+      ],
+      "id": "c5121684-0359-4cc2-a723-209fc8d87c3e",
+      "name": "Google Sheets - Save Resume",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "klT2HgHaHZv1Vjnr",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=Resume uploaded successfully!\n\nName: {{ $('Prepare Resume Data').item.json.Name }}\nEmail: {{ $('Prepare Resume Data').item.json.Email }}\nPhone: {{ $('Prepare Resume Data').item.json.Phone }}\nSkills: {{ $('Prepare Resume Data').item.json.Skills }}\nExperience: {{ $('Prepare Resume Data').item.json.Experience_years }} years\nCurrent Role: {{ $('Prepare Resume Data').item.json.Current_role }}\n\nYour resume is now saved! Ready to start applying? Just paste a LinkedIn job post here!",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        928,
+        112
+      ],
+      "id": "730a75fb-6ea8-41d7-8b13-e2655a1fb188",
+      "name": "Send Resume Confirmation",
+      "webhookId": "resume-confirm-webhook",
+      "credentials": {
+        "telegramApi": {
+          "id": "VilN21O6qgOfsoQs",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8bfe26e6-6e03-436b-b83a-9f3979044451",
+              "name": "questions",
+              "value": "=Write conversational job application email HTML. Style: Human punchy like cold emails not corporate speak. 250 to 280 words. Start Dear Hiring Team comma br br. Structure: Opening why excited about role and company. Then BRIEF mention of ALL my key projects from resume with tech stack: ML Network Traffic Classifier with Flask SQLite Docker, ISL Voice-to-Sign Translator with React and RESTful APIs, STEM animations using MANIM, NLP chatbot, any hackathons mentioning team size and outcome. Keep each project to one short line. Then paragraph about what excites you about the opportunity and how your AI ML skills and passion for educational technology fit. Emphasize AI ML focus NOT full-stack. Mention Oracle AI Foundations certification and interest in AI-driven solutions. Closing eager to contribute and chat more. End br br Best regards comma br Aayush Kulkarni br ayushkulkarni09@gmail.com br +91-8767248093. NO jargon NO buzzwords. Sound like real passionate developer writing to another developer. Use specific tools numbers and outcomes from my resume. Include hackathon experience if any. NO placeholders. DO NOT call yourself full-stack developer. Focus on AI ML and product development. Job post: {{ $('Telegram Trigger').item.json.message.text }}. Return HTML with br tags for line breaks.\n",
+              "type": "string"
+            },
+            {
+              "id": "63bbb0ae-a332-4fe1-8b54-f7b61d4204e1",
+              "name": "overrideConfig",
+              "value": "={{ {\"sessionId\": $('Telegram Trigger').item.json.message.chat.id} }}\n",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -576,
+        400
+      ],
+      "id": "77ade3bc-ff15-4f54-bfff-bfe0d67c30a1",
+      "name": "body"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.questions }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -352,
+        400
+      ],
+      "id": "176c2776-9d15-4a47-b09f-da704a6df740",
+      "name": "body agent"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "67d191da-224c-421b-860e-3edb34cddbfb",
+              "name": "questions",
+              "value": "=Create a SHORT professional email subject line max 8 words for this job application. RULES: Do NOT include the word Subject in your response. Just return the subject line text only. Make it professional and catchy. Include the name Aayush Kulkarni. Reference the job role from the post. Job Post: {{ $('Telegram Trigger').item.json.message.text }}. Return ONLY the subject line text nothing else.",
+              "type": "string"
+            },
+            {
+              "id": "0de562f1-3d61-4cfb-9846-635c81033b4e",
+              "name": "overrideConfig",
+              "value": "={{ {\"sessionId\": $('Telegram Trigger').item.json.message.chat.id} }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        64,
+        400
+      ],
+      "id": "77fe8931-8695-463b-aff4-ba7e444ae050",
+      "name": "subject"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.questions }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        352,
+        400
+      ],
+      "id": "23b68ff3-b5c8-4cc7-ac43-7818f75bf6fc",
+      "name": "subject1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $('Telegram Trigger').first().json.message.text;\nconst emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/;\nconst match = text.match(emailRegex);\nconst email = match ? match[0] : '';\n\nreturn [{ json: { email } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        400
+      ],
+      "id": "d00eea47-654e-4538-b836-2e71a3af6649",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "34d59493-314b-48b8-86f3-efb503cbb604",
+              "leftValue": "={{ $('body agent').item.json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "ff00d959-d815-4499-98b9-0871e2cd0cd2",
+              "leftValue": "{{ $('subject1').item.json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "d59a06cb-3c6e-4738-b397-d61565654dcb",
+              "leftValue": "={{ $('Code in JavaScript').item.json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1712,
+        400
+      ],
+      "id": "8b5fe858-e0b2-48dd-9bbc-9f70d2954d16",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Code in JavaScript').item.json.email }}",
+        "subject": "={{ $('subject1').item.json.output }}",
+        "message": "={{ $('body agent').item.json.output }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1936,
+        304
+      ],
+      "id": "cf5f275e-5640-4b26-bffb-6e6296c854b1",
+      "name": "Send a message",
+      "webhookId": "db50e583-011e-4710-996b-12ac3a20b725",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "XLOCG0FMFPT1u4JB",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=Application submitted successfully!\n\nCheck your Gmail Sent folder and Google Sheets for tracking.\n",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2464,
+        304
+      ],
+      "id": "c909d063-c1dd-46fd-bc14-92c651d7ac43",
+      "name": "Send Success Message",
+      "webhookId": "success-webhook",
+      "credentials": {
+        "telegramApi": {
+          "id": "VilN21O6qgOfsoQs",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=Error: Could not generate email!\n\nPossible reasons:\n\n- You haven't uploaded your resume yet\n\n- Job post doesn't contain a recruiter email\n\n- Job post is incomplete or too short\n\nWhat to do:\n\n1. Upload your resume first (send PDF file)\n\n2. Make sure job post includes contact email\n\n3. Paste the complete job posting\n\n4. Try again\n\n\nUse /help for more information",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1936,
+        496
+      ],
+      "id": "b8f622c2-63f9-47bd-96c0-cf6008535ab4",
+      "name": "Send Error Message",
+      "webhookId": "error-webhook",
+      "credentials": {
+        "telegramApi": {
+          "id": "VilN21O6qgOfsoQs",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -448,
+        784
+      ],
+      "id": "1b48e4cc-10d8-40b7-842f-4d8fecf1e670",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "20hPS6uk0eGRimUW",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -192,
+        848
+      ],
+      "id": "f3eb2ed5-be56-4d5e-a36a-da934176242b",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        224
+      ],
+      "id": "dedf789a-17fa-4fde-819f-10288e9a408a",
+      "name": "Google Gemini Chat Model - Resume",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "20hPS6uk0eGRimUW",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        112,
+        224
+      ],
+      "id": "aea3e7a1-09a6-4dc7-9368-0661fd856493",
+      "name": "Simple Memory - Resume"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare job post for AI extraction\nconst text = $('Telegram Trigger').first().json.message.text;\nconst email = $('Code in JavaScript').item.json.email;\n\nreturn [{\n  json: {\n    job_post: text,\n    email: email,\n    prompt: `Extract the company name and job title from this job posting. Be precise and accurate.\n\nJOB POST:\n${text}\n\nReturn ONLY a valid JSON object with no markdown formatting:\n{\n  \"company\": \"Company Name\",\n  \"job_title\": \"Job Title\"\n}\n\nRules:\n- If company name not found, return \"Not specified\"\n- If job title not found, return \"Not specified\"\n- Return ONLY the JSON, no explanation\n- No markdown code blocks`\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        400
+      ],
+      "id": "1d77b873-7dd6-44b7-8a88-c12d01f8c86b",
+      "name": "Prepare Job Data for AI"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1152,
+        400
+      ],
+      "id": "dee99b53-2346-4f50-a8fc-434a7a14648d",
+      "name": "AI Extract Job Details"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1056,
+        240
+      ],
+      "id": "601e76d4-816f-4d8a-9698-cb5a4f504681",
+      "name": "Telegram Trigger",
+      "webhookId": "53e2c400-0edb-413c-9d68-7035828673cb",
+      "credentials": {
+        "telegramApi": {
+          "id": "VilN21O6qgOfsoQs",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1wzCbJ66HADSkTX2pd2-Cx-_cn8UEFsXKjBTBQPSsIok",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet2",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Application_id": "={{ $('Telegram Trigger').item.json.message.chat.id }}_{{ $now.toMillis() }}",
+            "User_id": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+            "Date_applied": "={{ $now.format('yyyy-MM-dd HH:mm:ss') }}",
+            "Company_name": "Not tracked",
+            "Job_title": "Not tracked",
+            "Job_description (brief)": "={{ $('Telegram Trigger').item.json.message.text.substring(0, 200) }}",
+            "Recruiter_email": "={{ $('Code in JavaScript').item.json.email }}",
+            "email_subject": "={{ $('subject1').item.json.output }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Application_id",
+              "displayName": "Application_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "User_id",
+              "displayName": "User_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Date_applied",
+              "displayName": "Date_applied",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company_name",
+              "displayName": "Company_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Job_title",
+              "displayName": "Job_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Job_description (brief)",
+              "displayName": "Job_description (brief)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Recruiter_email",
+              "displayName": "Recruiter_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_subject",
+              "displayName": "email_subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Application submitted successfully!",
+              "displayName": "Application submitted successfully!",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Response_date",
+              "displayName": "Response_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Notes",
+              "displayName": "Notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        2208,
+        288
+      ],
+      "id": "df5cc46c-4a6d-4987-9332-ad11e07c1384",
+      "name": "Log In to DB",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "klT2HgHaHZv1Vjnr",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const aiAgentOutput = $input.item.json;\n  let jobDetails;\n  \n  if (aiAgentOutput.output) {\n    if (typeof aiAgentOutput.output === 'string') {\n      const cleanOutput = aiAgentOutput.output.replace(/``````\\n?/g, '').trim();\n      jobDetails = JSON.parse(cleanOutput);\n    } else {\n      jobDetails = aiAgentOutput.output;\n    }\n  } else {\n    jobDetails = aiAgentOutput;\n  }\n  \n  const email = $('Code in JavaScript').item.json.email;\n  \n  return [{\n    json: {\n      email: email,\n      company: jobDetails.company || 'Not specified',\n      job_title: jobDetails.job_title || 'Not specified'\n    }\n  }];\n  \n} catch (error) {\n  console.error('Error:', error.message);\n  const email = $('Code in JavaScript').item.json.email;\n  \n  return [{\n    json: {\n      email: email,\n      company: 'Parse failed',\n      job_title: 'Parse failed'\n    }\n  }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        400
+      ],
+      "id": "f1fed92b-38a0-4fe7-bb9b-7470bffbcfc7",
+      "name": "Parse AI Response"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Get a file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a file": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Parse Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Parse Resume": {
+      "main": [
+        [
+          {
+            "node": "Prepare Resume Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Resume Data": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Save Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Save Resume": {
+      "main": [
+        [
+          {
+            "node": "Send Resume Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "body": {
+      "main": [
+        [
+          {
+            "node": "body agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "body agent": {
+      "main": [
+        [
+          {
+            "node": "subject",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "subject": {
+      "main": [
+        [
+          {
+            "node": "subject1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "subject1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Prepare Job Data for AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Error Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Log In to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "body agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "subject1",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "AI Extract Job Details",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "body agent",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "subject1",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "AI Extract Job Details",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model - Resume": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Parse Resume",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory - Resume": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent - Parse Resume",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Job Data for AI": {
+      "main": [
+        [
+          {
+            "node": "AI Extract Job Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Extract Job Details": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log In to DB": {
+      "main": [
+        [
+          {
+            "node": "Send Success Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1,
+    "availableInMCP": false
+  },
+  "versionId": "7074638d-db14-4ae1-8705-59b0b018e9d0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fba3b84b0c5c05da9b29c9a4d6ae842bcea509d6006d23f4cd154b75a38378d1"
+  },
+  "id": "ttLttmBb1NrwnDTn",
+  "tags": []
+}
