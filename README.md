@@ -274,7 +274,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 If you use this project in your research or work, please cite:
 
-@software{kulkarni2025jobautomation,
+@softwarekulkarni2025jobautomation,
 
 author = {Kulkarni, Ayush},
 
