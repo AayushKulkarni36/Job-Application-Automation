@@ -275,9 +275,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you use this project in your research or work, please cite:
 
 @software{kulkarni2025jobautomation,
+
 author = {Kulkarni, Ayush},
+
 title = {AI-Driven Job Application Automation System},
+
 year = {2025},
+
 publisher = {GitHub},
+
 url = {https://github.com/AayushKulkarni36/job-application-automation}
-}
+
